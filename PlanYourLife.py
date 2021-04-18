@@ -1,10 +1,10 @@
 import sys
+import hashlib
 import sqlite3
 from PyQt5.QtWidgets import (QApplication, QComboBox, QWidget,
                              QCalendarWidget, QTextEdit, QMessageBox,
-                             QLineEdit, QPushButton, QToolTip, QTableWidgetItem,
+                             QLineEdit, QPushButton, QTableWidgetItem,
                              QLabel, QListWidget, QTableWidget, QHeaderView)
-from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import QDate
 from PyQt5.QtGui import QIcon  # импорт необходимых библиотек
 
@@ -17,6 +17,7 @@ class Window(QWidget):
         self.cur = self.con.cursor()
         self.acc = 0
         self.pasw = 0
+        self.v = False
 
     def unitUI(self):
         self.setGeometry(0, 0, 1000, 1500)  # создаем окно
@@ -42,14 +43,14 @@ class Window(QWidget):
         self.btn2.move(420, 30)
         self.btn2.setStyleSheet("background-color: green")
         self.btn2.clicked.connect(self.create_new_account)
-        cal = QCalendarWidget(self)  # создаем календарь
-        cal.setGridVisible(True)
-        cal.move(50, 60)
-        cal.resize(600, 600)
-        cal.clicked[QDate].connect(self.showDate)
+        self.cal = QCalendarWidget(self)  # создаем календарь
+        self.cal.setGridVisible(True)
+        self.cal.move(50, 60)
+        self.cal.resize(600, 600)
+        self.cal.clicked[QDate].connect(self.showDate)
         # отображение отмеченой даты
         self.lab3 = QLabel(self)
-        date = cal.selectedDate()
+        date = self.cal.selectedDate()
         self.lab3.setText(date.toString())
         self.lab3.move(790, 35)
         self.lab3.resize(200, 25)
@@ -91,6 +92,14 @@ class Window(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.table.move(675, 70)
         self.table.resize(300, 600)
+        self.btn8 = QPushButton('Приглашения', self)
+        self.btn8.move(135, 665)
+        self.btn8.setStyleSheet("background-color: gray")
+        self.btn8.clicked.connect(self.mails)
+        self.btn9 = QPushButton('Настройки', self)
+        self.btn9.move(50, 665)
+        self.btn9.setStyleSheet("background-color: gray")
+        self.btn9.clicked.connect(self.tools)
 
     def showDate(self, date):
         self.lab3.setText(date.toString())
@@ -104,12 +113,15 @@ class Window(QWidget):
                 self.table.setItem(i, 0, QTableWidgetItem(str(today_ev[i][1])))
 
     def log_in_system(self):  # проверки при входе
-        if (self.eline.text(),) not in self.cur.execute("""SELECT nickname
+        h = hashlib.md5(self.eline2.text().encode())
+        if self.v:
+            pass
+        elif (self.eline.text(),) not in self.cur.execute("""SELECT nickname
                     FROM log_in_the_system WHERE id > 0""").fetchall():
             # проверка существования аккаунта
             self.msg = QMessageBox.warning(self, 'Неверный логин',
                                            'Логин не найден')
-        elif (self.eline2.text(),) not in self.cur.execute("""SELECT password
+        elif (h.hexdigest(),) not in self.cur.execute("""SELECT password
                         FROM log_in_the_system
                         WHERE nickname = '{}'""".format(self.eline.text())).fetchall():
             # совпадение ввода с паролем
@@ -122,6 +134,9 @@ class Window(QWidget):
             self.acc = self.eline.text()
             self.pasw = self.eline2.text()
             self.eline2.setText(len(self.pasw) * '*')
+            self.eline2.setReadOnly(True)
+            self.eline.setReadOnly(True)
+            self.v = True
             text = 'Добро пожаловать!'
             your_events = self.cur.execute("""SELECT id FROM events
                         WHERE guests LIKE'%{}%' """.format(self.acc)).fetchall()
@@ -146,7 +161,10 @@ class Window(QWidget):
         pass
 
     def create_new_account(self):  # проверки при регистрации
-        if len(self.eline.text()) < 4:  # проверка длины логина
+        h = hashlib.md5(self.eline2.text().encode())
+        if self.v:
+            pass
+        elif len(self.eline.text()) < 4:  # проверка длины логина
             self.msg = QMessageBox.warning(self, 'Неверный логин',
                                            'Логин должен содержать '+
                                            'не менее 4 символов')
@@ -179,11 +197,12 @@ class Window(QWidget):
             self.cur.execute("""INSERT INTO log_in_the_system(nickname,
                         password, col_events) VALUES ('{}',
                         '{}', 0)""".format(self.eline.text(),
-                                           self.eline2.text()))
+                                           h.hexdigest()))
             self.con.commit()
             self.acc = self.eline.text()
             self.pasw = self.eline2.text()
             self.eline2.setText(len(self.pasw) * '*')
+            self.v = True
 
     def create_new_event(self):  # создаем новое событие fencing123
         if self.entrance():
@@ -228,6 +247,9 @@ class Window(QWidget):
                 self.pasw = 0
                 self.eline2.setText('')
                 self.eline.setText('')
+                self.eline2.setReadOnly(False)
+                self.eline.setReadOnly(False)
+                self.v = False
         else:
             self.msg = QMessageBox.warning(self, 'Ошибка!', 'Войдите в аккаунт')
 
@@ -271,6 +293,12 @@ class Window(QWidget):
                 self.msg = QMessageBox.warning(self, 'Ошибка!', 'Войдите в аккаунт')
         except AttributeError:
             self.msg = QMessageBox.warning(self, 'Ошибка!', 'Выберете событие')
+
+    def mails(self):
+        pass
+
+    def tools(self):
+        pass
 
 
 class NewEvent(QWidget):
@@ -571,7 +599,3 @@ if __name__ == '__main__':  # показываем окно пользовате
     ex = Window()
     ex.show()
     sys.exit(app.exec_())
-			
-			
-			
-			
